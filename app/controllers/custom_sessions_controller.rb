@@ -6,16 +6,19 @@ class CustomSessionsController < Devise::SessionsController
   respond_to :json
 
   def create
-    resource = User.find_for_database_authentication(:email => params[:email])
-    return invalid_login_attempt unless resource
+    resource = User.find_for_database_authentication(email: params[:user][:email])
+    self.resource = warden.authenticate!(:scope => resource_name, :recall => "custom_sessions#invalid_login_attempt")
 
-    if resource.valid_password?(params[:password])
-      sign_in(:user, resource)
-      render :json => {:success => true, :user => resource }
-      return
-    end
-    invalid_login_attempt
+    set_flash_message(:notice, :signed_in) if is_flashing_format?
+    sign_in(resource_name, resource)
+    yield resource if block_given?
+    render :json => {:success => true, :user => resource}
 
+  end
+
+
+  def after_sign_in_path_for resource
+    render :json => {:success => true, :user => resource}
   end
 
   def invalid_login_attempt
@@ -37,7 +40,7 @@ class CustomSessionsController < Devise::SessionsController
     render :json => {:user => current_user}, :status => 200
   end
 
-  def resource
-    @resource ||= User.new
-  end
+  #def resource
+  #  User.find ||= User.new
+  #end
 end
